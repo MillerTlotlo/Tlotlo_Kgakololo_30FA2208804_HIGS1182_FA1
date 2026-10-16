@@ -1,7 +1,9 @@
+
 using UnityEngine;
 
 public class Projectile : MonoBehaviour
 {
+    [Header("Projectile Settings")]
     [SerializeField]
     [Range(5000f, 25000f)]
     private float _launchForce = 10000f;
@@ -16,15 +18,7 @@ public class Projectile : MonoBehaviour
 
     private Rigidbody _rigidbody;
     private float _duration;
-
-    private bool OutOfFuel
-    {
-        get
-        {
-            _duration -= Time.deltaTime;
-            return _duration <= 0f;
-        }
-    }
+    private bool _hasHit;
 
     private void Awake()
     {
@@ -34,9 +28,11 @@ public class Projectile : MonoBehaviour
     private void OnEnable()
     {
         _duration = _range;
+        _hasHit = false;
 
         if (_rigidbody != null)
         {
+            _rigidbody.useGravity = false;
             _rigidbody.linearVelocity = Vector3.zero;
             _rigidbody.angularVelocity = Vector3.zero;
 
@@ -45,11 +41,20 @@ public class Projectile : MonoBehaviour
                 ForceMode.Force
             );
         }
+        else
+        {
+            Debug.LogError(
+                "Projectile needs a Rigidbody component!",
+                this
+            );
+        }
     }
 
     private void Update()
     {
-        if (OutOfFuel)
+        _duration -= Time.deltaTime;
+
+        if (_duration <= 0f)
         {
             Destroy(gameObject);
         }
@@ -57,17 +62,44 @@ public class Projectile : MonoBehaviour
 
     private void OnCollisionEnter(Collision collision)
     {
-        IDamagable damageable =
-            collision.collider.GetComponent<IDamagable>();
+        if (_hasHit)
+            return;
 
-        if (damageable != null)
+        _hasHit = true;
+
+        // Find the enemy, including on a parent object.
+        SpaceEnemy enemy =
+            collision.collider.GetComponentInParent<SpaceEnemy>();
+
+        if (enemy != null)
         {
-            Vector3 hitPosition = collision.GetContact(0).point;
+            enemy.TakeDamage(_damage);
 
-            damageable.TakeDamage(_damage, hitPosition);
+            Debug.Log(
+                "Projectile hit SpaceEnemy! Damage: " + _damage
+            );
+        }
+        else
+        {
+            // Also support objects using your existing IDamagable interface.
+            MonoBehaviour[] components =
+                collision.collider.GetComponentsInParent<MonoBehaviour>();
+
+            foreach (MonoBehaviour component in components)
+            {
+                if (component is IDamagable damageable)
+                {
+                    Vector3 hitPosition = collision.contactCount > 0
+                        ? collision.GetContact(0).point
+                        : collision.transform.position;
+
+                    damageable.TakeDamage(_damage, hitPosition);
+                    break;
+                }
+            }
         }
 
-        // Destroy the projectile when it hits something
+        // Destroy the projectile after a collision.
         Destroy(gameObject);
     }
 }

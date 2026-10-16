@@ -207,7 +207,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _launchForce: 17683
-  _damage: 364
+  _damage: 302
   _range: 9.24
 --- !u!1 &7999672889907137199
 GameObject:
